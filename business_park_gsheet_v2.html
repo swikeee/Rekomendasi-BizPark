@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analisis Kavling Pergudangan — Podomoro City Bdg</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --ink: #0e1117; --ink2: #1e2330; --smoke: #f5f3ee; --warm: #ede9df;
+  --gold: #c9a84c; --gold-light: #f0d98a; --gold-dim: #7a6228;
+  --rust: #b85c38; --sage: #4a7c59; --slate: #5a6a7e;
+  --card-bg: #ffffff; --border: rgba(14,17,23,0.08); --border-strong: rgba(14,17,23,0.15);
+  --radius: 14px; --font: 'Montserrat', sans-serif;
+  --danger: #b85c38; --danger-bg: #fdf1ec;
+}
+body { font-family: var(--font); background: var(--smoke); color: var(--ink); }
+.wrap { padding: 1.5rem 1rem 2.5rem; max-width: 940px; margin: 0 auto; }
+
+.masthead { margin-bottom: 1.5rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border-strong); }
+.masthead-tag { font-size: 9px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold-dim); background: rgba(201,168,76,0.12); display: inline-block; padding: 4px 12px; border-radius: 99px; margin-bottom: 10px; }
+.masthead-title { font-size: 22px; font-weight: 800; color: var(--ink); letter-spacing: -0.02em; }
+.masthead-title span { color: var(--gold); }
+.masthead-sub { font-size: 11px; color: var(--slate); margin-top: 5px; font-weight: 300; }
+
+/* ── SYNC BAR ── */
+.sync-bar { background: var(--card-bg); border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 1.4rem; }
+.sync-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sync-label { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--slate); white-space: nowrap; }
+.sync-input { font-family: var(--font); font-size: 10px; border: 1px solid var(--border-strong); border-radius: 6px; padding: 6px 10px; color: var(--ink); background: var(--smoke); flex: 1; min-width: 200px; transition: border-color 0.15s; }
+.sync-input:focus { outline: none; border-color: var(--gold); background: #fff; }
+.sync-input::placeholder { color: #bbb; }
+.btn-s { font-family: var(--font); font-size: 10px; font-weight: 600; padding: 6px 13px; border-radius: 6px; border: none; cursor: pointer; transition: opacity 0.15s; letter-spacing: 0.04em; white-space: nowrap; }
+.btn-s:hover { opacity: 0.82; }
+.btn-s:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-s.load  { background: var(--ink2); color: var(--gold-light); }
+.btn-s.save  { background: var(--sage); color: #fff; }
+.btn-s.auto-off { background: var(--warm); color: var(--slate); border: 1px solid var(--border-strong); }
+.btn-s.auto-on  { background: #e8f5ec; color: #2d6e3e; border: 1px solid #4a7c59; }
+.btn-s.setup { background: none; color: var(--slate); border: 1px solid var(--border-strong); font-size: 9px; }
+.sync-status { font-size: 9px; font-weight: 600; padding: 4px 10px; border-radius: 99px; white-space: nowrap; }
+.s-idle  { background: var(--warm); color: var(--slate); }
+.s-busy  { background: #faeeda; color: #633806; }
+.s-ok    { background: #e8f5ec; color: #2d6e3e; }
+.s-err   { background: #fcebeb; color: #a32d2d; }
+.sync-hint { font-size: 9px; color: var(--slate); font-weight: 400; margin-top: 8px; line-height: 1.6; }
+.sync-hint a { color: var(--gold-dim); text-decoration: underline; cursor: pointer; }
+
+/* ── PARAMS ── */
+.params-card { background: var(--ink2); border-radius: var(--radius); padding: 1.1rem 1.4rem; margin-bottom: 1.4rem; }
+.params-label { font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.3); margin-bottom: 0.9rem; }
+.sl-row { display: flex; align-items: center; gap: 12px; margin-bottom: 9px; }
+.sl-row:last-child { margin-bottom: 0; }
+.sl-row label { font-size: 11px; color: rgba(255,255,255,0.5); min-width: 172px; font-weight: 300; }
+.sl-row input[type=range] { flex: 1; accent-color: var(--gold); cursor: pointer; }
+.sl-val { font-size: 11px; font-weight: 600; color: var(--gold-light); min-width: 52px; text-align: right; }
+
+/* ── KPI ── */
+.kpi-strip { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 1.4rem; }
+@media(max-width:560px){ .kpi-strip { grid-template-columns: repeat(2,1fr); } }
+.kpi { background: var(--card-bg); border-radius: var(--radius); border: 1px solid var(--border); padding: 0.9rem 1rem; position: relative; overflow: hidden; }
+.kpi::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+.kpi.gold::before { background: linear-gradient(90deg,var(--gold),var(--gold-light)); }
+.kpi.sage::before { background: linear-gradient(90deg,var(--sage),#7ab892); }
+.kpi.rust::before { background: linear-gradient(90deg,var(--rust),#e07a52); }
+.kpi.slate::before { background: linear-gradient(90deg,var(--slate),#8a9db5); }
+.kpi-lbl { font-size: 9px; color: var(--slate); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; margin-bottom: 5px; }
+.kpi-val { font-size: 17px; font-weight: 700; color: var(--ink); line-height: 1.1; }
+.kpi-sub { font-size: 9px; color: var(--slate); margin-top: 3px; font-weight: 400; }
+
+.sec-lbl { font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--slate); margin-bottom: 11px; }
+
+/* ── TIPE CARDS ── */
+.tipe-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 11px; margin-bottom: 1.4rem; }
+@media(max-width:560px){ .tipe-grid { grid-template-columns: 1fr; } }
+.tipe-card { background: var(--card-bg); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; }
+.tipe-accent { height: 4px; }
+.tipe-body { padding: 1rem 1.1rem; }
+.tipe-badge-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.tipe-name { font-size: 14px; font-weight: 800; color: var(--ink); }
+.tipe-ukuran { font-size: 9px; font-weight: 600; padding: 3px 10px; border-radius: 99px; letter-spacing: 0.04em; }
+.tipe-row { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 11px; }
+.tipe-row:last-child { border-bottom: none; }
+.tipe-lbl { color: var(--slate); font-weight: 300; }
+.tipe-val { font-weight: 600; color: var(--ink); font-size: 11px; }
+.tipe-highlight { background: rgba(201,168,76,0.07); border-radius: 6px; margin: 8px -4px 0; padding: 6px 8px; }
+.tipe-highlight .tipe-lbl { color: var(--gold-dim); font-size: 9px; }
+.tipe-highlight .tipe-val { color: var(--gold-dim); font-size: 12px; font-weight: 700; }
+
+/* ── BARS ── */
+.bars-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.1rem 1.25rem; margin-bottom: 1.4rem; }
+.bar-row { margin-bottom: 11px; }
+.bar-row:last-child { margin-bottom: 0; }
+.bar-meta { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 4px; }
+.bar-meta-l { color: var(--ink); font-weight: 600; }
+.bar-meta-r { color: var(--slate); font-weight: 300; }
+.bar-track { background: var(--warm); border-radius: 4px; height: 7px; overflow: hidden; }
+.bar-fill { height: 7px; border-radius: 4px; transition: width 0.35s ease; }
+
+/* ── COMPETITOR ── */
+.comp-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 11px; gap: 10px; flex-wrap: wrap; }
+.comp-actions { display: flex; gap: 7px; align-items: center; }
+.btn-add { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font); font-size: 10px; font-weight: 600; background: var(--ink2); color: var(--gold-light); border: none; border-radius: 99px; padding: 6px 14px; cursor: pointer; transition: opacity 0.15s; }
+.btn-add:hover { opacity: 0.85; }
+.btn-sheet-save { font-family: var(--font); font-size: 10px; font-weight: 600; background: var(--sage); color: #fff; border: none; border-radius: 99px; padding: 6px 13px; cursor: pointer; transition: opacity 0.15s; }
+.btn-sheet-save:hover { opacity: 0.82; }
+.comp-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 1.4rem; }
+.comp-table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 11px; min-width: 640px; }
+thead tr { border-bottom: 2px solid var(--border-strong); background: var(--ink2); }
+th { text-align: left; padding: 9px 12px; font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.4); white-space: nowrap; font-family: var(--font); }
+td { padding: 0; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr.our-row td { background: rgba(201,168,76,0.06); }
+tbody tr.our-row td:first-child { border-left: 3px solid var(--gold); }
+tbody tr:not(.our-row):hover td { background: #faf8f3; }
+tbody tr.our-row:hover td { background: rgba(201,168,76,0.11); }
+.cell { padding: 7px 12px; display: flex; align-items: center; font-size: 11px; font-family: var(--font); }
+.cell-edit { padding: 3px 5px; }
+.td-input { font-family: var(--font); font-size: 11px; font-weight: 400; color: var(--ink); background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 4px 7px; width: 100%; min-width: 55px; transition: border-color 0.15s, background 0.15s; }
+.td-input:hover { border-color: var(--border-strong); background: var(--warm); }
+.td-input:focus { outline: none; border-color: var(--gold); background: rgba(201,168,76,0.06); }
+.td-auto { font-family: var(--font); font-size: 11px; font-weight: 600; color: var(--ink); background: rgba(201,168,76,0.04); border: 1px solid transparent; border-radius: 6px; padding: 4px 7px; width: 100%; min-width: 55px; cursor: default; }
+.auto-hint { font-size: 8px; color: var(--gold-dim); font-weight: 500; display: block; line-height: 1; margin-top: 1px; }
+.pill { display: inline-block; font-size: 9px; font-weight: 700; padding: 2px 9px; border-radius: 99px; white-space: nowrap; font-family: var(--font); }
+.pill-green { background: #e8f5ec; color: #2d6e3e; }
+.pill-amber { background: #fef3dc; color: #7a5a10; }
+.pill-gray  { background: var(--warm); color: var(--slate); }
+.pill-gold  { background: rgba(201,168,76,0.18); color: var(--gold-dim); }
+.btn-del { background: none; border: none; cursor: pointer; padding: 4px 8px; border-radius: 6px; color: #ccc; font-size: 12px; line-height: 1; transition: color 0.15s, background 0.15s; display: flex; align-items: center; }
+.btn-del:hover { color: var(--danger); background: var(--danger-bg); }
+
+/* ── MODALS ── */
+.overlay { position: fixed; inset: 0; background: rgba(14,17,23,0.55); display: flex; align-items: center; justify-content: center; z-index: 999; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.overlay.show { opacity: 1; pointer-events: all; }
+.modal { background: var(--card-bg); border-radius: var(--radius); padding: 1.5rem; width: 360px; max-width: 96vw; transform: translateY(12px); transition: transform 0.2s; }
+.modal.wide { width: 500px; }
+.overlay.show .modal { transform: translateY(0); }
+.modal-title { font-size: 15px; font-weight: 800; color: var(--ink); margin-bottom: 1.1rem; }
+.form-group { margin-bottom: 12px; }
+.form-label { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--slate); display: block; margin-bottom: 5px; }
+.form-input { font-family: var(--font); font-size: 12px; width: 100%; border: 1px solid var(--border-strong); border-radius: 8px; padding: 8px 11px; color: var(--ink); background: var(--smoke); transition: border-color 0.15s; }
+.form-input:focus { outline: none; border-color: var(--gold); background: #fff; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.form-note { font-size: 9px; color: var(--slate); margin-top: -6px; margin-bottom: 8px; }
+.modal-actions { display: flex; gap: 8px; margin-top: 1.1rem; }
+.btn-primary { flex: 1; font-family: var(--font); font-size: 11px; font-weight: 600; background: var(--ink2); color: var(--gold-light); border: none; border-radius: 8px; padding: 9px; cursor: pointer; transition: opacity 0.15s; }
+.btn-primary:hover { opacity: 0.85; }
+.btn-cancel { font-family: var(--font); font-size: 11px; background: none; color: var(--slate); border: 1px solid var(--border-strong); border-radius: 8px; padding: 9px 16px; cursor: pointer; }
+.btn-cancel:hover { background: var(--warm); }
+
+/* ── SETUP GUIDE ── */
+.step-block { background: var(--smoke); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; font-size: 10px; line-height: 1.65; }
+.step-num { display: inline-flex; align-items: center; justify-content: center; background: var(--ink2); color: var(--gold-light); font-size: 8px; font-weight: 700; width: 17px; height: 17px; border-radius: 50%; margin-right: 6px; flex-shrink: 0; }
+.code-block { background: #1e2330; border-radius: 8px; padding: 10px 14px; margin: 8px 0; overflow-x: auto; }
+.code-block pre { font-family: monospace; font-size: 9.5px; color: #f0d98a; white-space: pre; line-height: 1.55; }
+.legend-row { display: flex; gap: 14px; margin-bottom: 8px; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 9px; color: var(--slate); font-weight: 500; }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+.footnote { font-size: 9.5px; color: var(--slate); line-height: 1.7; padding: 0 0.25rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- MASTHEAD -->
+  <div class="masthead">
+    <div class="masthead-tag">Business Park · Sungai Citarum, Bandung</div>
+    <div class="masthead-title">Analisis Kavling <span>Pergudangan</span></div>
+    <div class="masthead-sub">Simulasi mix produk & estimasi harga — data kompetitor tersimpan di Google Sheets, tidak hilang saat refresh</div>
+  </div>
+
+  <!-- SYNC BAR -->
+  <div class="sync-bar">
+    <div class="sync-top">
+      <span class="sync-label">Google Sheets</span>
+      <input class="sync-input" id="sheet-url" placeholder="Paste URL Web App (Apps Script) di sini...">
+      <button class="btn-s load" id="btn-load" onclick="loadFromSheet()">↓ Load</button>
+      <button class="btn-s save" id="btn-save" onclick="saveToSheet()">↑ Simpan</button>
+      <button class="btn-s auto-off" id="btn-auto" onclick="toggleAutoSave()">Auto-save</button>
+      <button class="btn-s setup" onclick="openSetupModal()">? Panduan</button>
+      <span class="sync-status s-idle" id="sync-status">Belum terhubung</span>
+    </div>
+    <div class="sync-hint">
+      Data kompetitor otomatis disimpan ke <strong>localStorage</strong> (tidak hilang saat refresh).
+      Untuk sinkronisasi antar device lewat Google Sheets, <a onclick="openSetupModal()">ikuti panduan setup →</a>
+    </div>
+  </div>
+
+  <!-- PARAMS -->
+  <div class="params-card">
+    <div class="params-label">Parameter & Asumsi</div>
+    <div class="sl-row"><label>Luas lahan total (Ha)</label><input type="range" min="8" max="15" step="0.5" value="13" id="sl-lahan"><span class="sl-val" id="out-lahan">13 Ha</span></div>
+    <div class="sl-row"><label>Efisiensi lahan (%)</label><input type="range" min="40" max="70" step="1" value="55" id="sl-efisiensi"><span class="sl-val" id="out-efisiensi">55%</span></div>
+    <div class="sl-row"><label>Harga tanah raw (juta/m²)</label><input type="range" min="0.5" max="6" step="0.1" value="2.5" id="sl-tanah"><span class="sl-val" id="out-tanah">2,5 jt</span></div>
+    <div class="sl-row"><label>Margin keuntungan (%)</label><input type="range" min="20" max="60" step="5" value="35" id="sl-margin"><span class="sl-val" id="out-margin">35%</span></div>
+  </div>
+
+  <div class="kpi-strip" id="kpi-strip"></div>
+
+  <div class="sec-lbl">Rekomendasi 3 tipe kavling gudang</div>
+  <div class="tipe-grid" id="tipe-grid"></div>
+
+  <div class="bars-card">
+    <div class="sec-lbl" style="margin-bottom:13px;">Distribusi lahan efektif</div>
+    <div id="bar-chart"></div>
+  </div>
+
+  <div class="comp-header">
+    <div>
+      <div class="sec-lbl" style="margin-bottom:6px;">Benchmark harga vs kompetitor</div>
+      <div class="legend-row">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--gold);"></div>Podomoro City Bdg (kita)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ddd;"></div>Kompetitor — klik sel untuk edit</div>
+        <div class="legend-item" style="font-style:italic;">⚡ Edit tipe → LT & Rp/m² otomatis berubah</div>
+      </div>
+    </div>
+    <div class="comp-actions">
+      <button class="btn-sheet-save" onclick="saveToSheet()" title="Kirim ke Google Sheet">↑ Ke Sheet</button>
+      <button class="btn-add" onclick="openModal()">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="6" y1="1" x2="6" y2="11"/><line x1="1" y1="6" x2="11" y2="6"/>
+        </svg>
+        Tambah kompetitor
+      </button>
+    </div>
+  </div>
+
+  <div class="comp-card">
+    <div class="comp-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Nama</th>
+            <th>Tipe <span style="color:rgba(255,255,255,0.2);font-weight:400;">(pxl)</span></th>
+            <th>LT m² <span style="color:var(--gold);font-weight:400;">⚡auto</span></th>
+            <th>LB m²</th>
+            <th>Harga (Rp juta)</th>
+            <th>Rp/m² LT <span style="color:var(--gold);font-weight:400;">⚡auto</span></th>
+            <th>Posisi</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="comp-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footnote">
+    * Efisiensi 55% mempertimbangkan sempadan Sungai Citarum (30–50m), jalan internal 6–8m, parkir truk, RTH & utilitas.<br>
+    · Biaya konstruksi Rp 4,5 jt/m² LB + overhead 15%. · Tabel diurutkan LT ascending. · Data tersimpan otomatis di browser (localStorage).
+  </div>
+</div>
+
+<!-- Modal: tambah kompetitor -->
+<div class="overlay" id="overlay-add" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">Tambah Kompetitor</div>
+    <div class="form-group">
+      <label class="form-label">Nama proyek / kompetitor</label>
+      <input class="form-input" id="f-nama" placeholder="cth. Kutawaringin IP 3">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Tipe (panjang × lebar)</label>
+        <input class="form-input" id="f-tipe" placeholder="cth. 8×30">
+      </div>
+      <div class="form-group">
+        <label class="form-label">LB (m²) — opsional</label>
+        <input class="form-input" type="number" id="f-lb" placeholder="auto 60% LT">
+      </div>
+    </div>
+    <div class="form-note">LT dihitung otomatis dari tipe (p×l). LB kosong → 60% LT.</div>
+    <div class="form-group">
+      <label class="form-label">Harga jual (Rp juta)</label>
+      <input class="form-input" type="number" id="f-harga" placeholder="cth. 3000">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Batal</button>
+      <button class="btn-primary" onclick="saveModal()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: panduan setup Apps Script -->
+<div class="overlay" id="overlay-setup" onclick="if(event.target===this)closeSetupModal()">
+  <div class="modal wide">
+    <div class="modal-title">Setup Google Apps Script</div>
+    <p style="font-size:10px;color:var(--slate);margin-bottom:12px;font-weight:300;">Lakukan sekali. Setelah selesai, paste URL Web App ke kolom sync di atas.</p>
+
+    <div class="step-block"><span class="step-num">1</span><strong>Buat Google Sheet baru.</strong> Baris 1 isi header: <code style="background:var(--warm);padding:1px 5px;border-radius:3px;font-family:monospace;font-size:9px;">nama | tipe | lb | harga</code> di kolom A–D. Rename tab sheet jadi <code style="background:var(--warm);padding:1px 5px;border-radius:3px;font-family:monospace;font-size:9px;">Kompetitor</code>.</div>
+
+    <div class="step-block"><span class="step-num">2</span><strong>Buka Apps Script:</strong> menu Extensions → Apps Script. Hapus kode lama, paste kode di bawah ini:</div>
+
+    <div class="code-block">
+      <pre id="gs-code">const SHEET_NAME = 'Kompetitor';
+
+function doGet(e) {
+  const sh = SpreadsheetApp.getActiveSpreadsheet()
+    .getSheetByName(SHEET_NAME);
+  const rows = sh.getDataRange().getValues();
+  const headers = rows[0].map(h => String(h).toLowerCase().trim());
+  const data = rows.slice(1).map(r => {
+    const o = {};
+    headers.forEach((h,i) => o[h] = r[i]);
+    return o;
+  }).filter(r => r.nama);
+  return ContentService
+    .createTextOutput(JSON.stringify({ok:true, data}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  const sh = SpreadsheetApp.getActiveSpreadsheet()
+    .getSheetByName(SHEET_NAME);
+  const payload = JSON.parse(e.postData.contents);
+  sh.clearContents();
+  sh.appendRow(['nama','tipe','lb','harga']);
+  payload.data.forEach(r =>
+    sh.appendRow([r.nama, r.tipe, r.lb, r.harga])
+  );
+  return ContentService
+    .createTextOutput(JSON.stringify({ok:true, saved:payload.data.length}))
+    .setMimeType(ContentService.MimeType.JSON);
+}</pre>
+    </div>
+    <button id="copy-btn" onclick="copyGsCode()" style="font-family:var(--font);font-size:9px;font-weight:600;background:var(--warm);border:1px solid var(--border-strong);border-radius:6px;padding:5px 12px;cursor:pointer;margin-bottom:10px;">Salin kode</button>
+
+    <div class="step-block"><span class="step-num">3</span><strong>Deploy sebagai Web App:</strong> Deploy → New deployment → Web App. Set <em>Execute as: Me</em> dan <em>Who has access: Anyone</em>. Klik Deploy → salin URL yang muncul.</div>
+
+    <div class="step-block"><span class="step-num">4</span><strong>Paste URL</strong> ke kolom "Google Sheets" di atas. Klik <strong>↓ Load</strong> untuk ambil data dari sheet, atau <strong>↑ Simpan</strong> untuk kirim data ke sheet.</div>
+
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="closeSetupModal()">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════
+//  STATE
+// ═══════════════════════════════
+const TYPES = [
+  { nama:'Small',  ukuran:'6×25',  lt:150, lb:90,  pct:30, accent:'#c9a84c', aL:'rgba(201,168,76,0.13)', aT:'#7a6228' },
+  { nama:'Medium', ukuran:'10×35', lt:350, lb:210, pct:40, accent:'#4a7c59', aL:'rgba(74,124,89,0.12)',  aT:'#2d5538' },
+  { nama:'Large',  ukuran:'16×40', lt:640, lb:384, pct:30, accent:'#5a6a7e', aL:'rgba(90,106,126,0.12)', aT:'#3a4a5e' },
+];
+const BIAYA = 4500000, OH = 0.15, OUR = 'Podomoro City Bdg';
+const LS_DATA = 'bp_competitors_v2', LS_URL = 'bp_sheet_url';
+
+let competitors = [
+  {id:1,nama:'Kutawaringin IP',  tipe:'6×25',  lb:72, harga:1200},
+  {id:2,nama:'Kutawaringin IP',  tipe:'8×25',  lb:96, harga:1700},
+  {id:3,nama:'Kutawaringin IP 2',tipe:'8×35',  lb:144,harga:3000},
+  {id:4,nama:'Kutawaringin IP 2',tipe:'16×35', lb:288,harga:5000},
+  {id:5,nama:'Kutawaringin IP 2',tipe:'24×40', lb:432,harga:8000},
+  {id:6,nama:'Bizpark',          tipe:'6×15',  lb:130,harga:3000},
+];
+let nextId = 10, autoSave = false, autoTimer = null;
+
+// ═══════════════════════════════
+//  LOCALSTORAGE
+// ═══════════════════════════════
+function persist() {
+  try {
+    localStorage.setItem(LS_DATA, JSON.stringify(competitors));
+    const u = document.getElementById('sheet-url').value.trim();
+    if (u) localStorage.setItem(LS_URL, u);
+  } catch(e){}
+}
+function restore() {
+  try {
+    const d = localStorage.getItem(LS_DATA);
+    if (d) {
+      const a = JSON.parse(d);
+      if (Array.isArray(a) && a.length) {
+        competitors = a;
+        nextId = Math.max(...a.map(c=>c.id||0)) + 1;
+      }
+    }
+    const u = localStorage.getItem(LS_URL);
+    if (u) document.getElementById('sheet-url').value = u;
+  } catch(e){}
+}
+
+// ═══════════════════════════════
+//  GOOGLE SHEETS
+// ═══════════════════════════════
+function setStatus(msg, cls) {
+  const el = document.getElementById('sync-status');
+  el.textContent = msg;
+  el.className = 'sync-status ' + cls;
+}
+function scriptUrl() { return document.getElementById('sheet-url').value.trim(); }
+
+async function loadFromSheet() {
+  const url = scriptUrl();
+  if (!url) { openSetupModal(); return; }
+  setStatus('Memuat...', 's-busy');
+  const btn = document.getElementById('btn-load');
+  btn.disabled = true;
+  try {
+    // Pakai no-cors mode dengan URL parameter trick untuk GET
+    const res = await fetch(url + '?action=get', {
+      method: 'GET',
+      mode: 'cors',
+    });
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    const text = await res.text();
+    let json;
+    try { json = JSON.parse(text); } catch(e) { throw new Error('Response bukan JSON — coba deploy ulang Apps Script'); }
+    if (!json.ok || !Array.isArray(json.data)) throw new Error(json.error || 'Format tidak valid');
+    if (!json.data.length) { setStatus('Sheet kosong — klik Simpan dulu', 's-idle'); btn.disabled=false; return; }
+    competitors = json.data.map((r,i)=>({
+      id: i+1,
+      nama:  String(r.nama||''),
+      tipe:  String(r.tipe||''),
+      lb:    parseFloat(r.lb)||0,
+      harga: parseFloat(r.harga)||0
+    })).filter(c=>c.nama);
+    nextId = competitors.length + 1;
+    persist();
+    compute();
+    setStatus('✓ Dimuat ('+competitors.length+' baris)', 's-ok');
+    localStorage.setItem(LS_URL, url);
+  } catch(err) {
+    setStatus('Error: '+err.message, 's-err');
+    console.error('loadFromSheet error:', err);
+  }
+  btn.disabled = false;
+}
+
+async function saveToSheet() {
+  const url = scriptUrl();
+  if (!url) { openSetupModal(); return; }
+  setStatus('Menyimpan...', 's-busy');
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true;
+  try {
+    const payload = {data: competitors.map(c=>({nama:c.nama,tipe:c.tipe,lb:c.lb,harga:c.harga}))};
+    // Apps Script butuh Content-Type: text/plain agar tidak trigger preflight CORS
+    const res = await fetch(url, {
+      method: 'POST',
+      mode: 'cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+    });
+    const text = await res.text();
+    let json;
+    try { json = JSON.parse(text); } catch(e) { throw new Error('Response bukan JSON'); }
+    if (!json.ok) throw new Error(json.error || 'Apps Script error');
+    setStatus('✓ Tersimpan ('+json.saved+' baris)', 's-ok');
+    localStorage.setItem(LS_URL, url);
+    persist();
+  } catch(err) {
+    // Fallback: coba via URL-encoded form POST
+    try {
+      await saveViaForm(url);
+    } catch(err2) {
+      setStatus('Gagal: '+err.message, 's-err');
+      console.error('saveToSheet error:', err, err2);
+    }
+  }
+  btn.disabled = false;
+}
+
+async function saveViaForm(url) {
+  // Workaround: kirim data sebagai query param via GET (untuk data kecil)
+  const payload = {data: competitors.map(c=>({nama:c.nama,tipe:c.tipe,lb:c.lb,harga:c.harga}))};
+  const encoded = encodeURIComponent(JSON.stringify(payload));
+  const res = await fetch(url + '?method=post&payload=' + encoded, {
+    method: 'GET',
+    mode: 'cors',
+  });
+  const text = await res.text();
+  const json = JSON.parse(text);
+  if (!json.ok) throw new Error(json.error || 'Apps Script error');
+  setStatus('✓ Tersimpan ('+json.saved+' baris)', 's-ok');
+  persist();
+}
+
+function scheduleAutoSave() {
+  if (!autoSave) return;
+  clearTimeout(autoTimer);
+  autoTimer = setTimeout(saveToSheet, 2000);
+}
+
+function toggleAutoSave() {
+  autoSave = !autoSave;
+  const btn = document.getElementById('btn-auto');
+  btn.textContent = autoSave ? '✓ Auto ON' : 'Auto-save';
+  btn.className = 'btn-s ' + (autoSave ? 'auto-on' : 'auto-off');
+  if (autoSave) setStatus('Auto-save aktif', 's-ok');
+}
+
+// ═══════════════════════════════
+//  COMPUTE
+// ═══════════════════════════════
+function parseTipe(t) {
+  const s = String(t).replace(/[×xX\*–\-]/g,'×');
+  const p = s.split('×');
+  if (p.length===2) { const a=parseFloat(p[0]),b=parseFloat(p[1]); if(a>0&&b>0) return Math.round(a*b); }
+  return null;
+}
+function gv(id) { return parseFloat(document.getElementById(id).value); }
+function fmtRp(n) {
+  if(n>=1e12) return 'Rp '+(n/1e12).toFixed(2)+' T';
+  if(n>=1e9)  return 'Rp '+(n/1e9).toFixed(2)+' M';
+  return 'Rp '+(n/1e6).toFixed(1)+' M';
+}
+function compAvg() {
+  const vals = competitors.map(c=>{ const lt=parseTipe(c.tipe); return lt?c.harga*1e6/lt:null; }).filter(Boolean);
+  return vals.length ? vals.reduce((s,x)=>s+x,0)/vals.length : 9500000;
+}
+
+function compute() {
+  const lM2=gv('sl-lahan')*10000, ef=gv('sl-efisiensi')/100, hT=gv('sl-tanah')*1e6, mg=gv('sl-margin')/100;
+  const eff=lM2*ef;
+  let tu=0,tg=0,th=0;
+  const rows=TYPES.map(t=>{
+    const lT=eff*(t.pct/100), u=Math.floor(lT/t.lt);
+    const hpp=(t.lt*hT+t.lb*BIAYA)*(1+OH), j=hpp/(1-mg);
+    tu+=u; tg+=j*u; th+=hpp*u;
+    return {...t,lT,u,hpp,j,pm:j/t.lt};
+  });
+  const pr=tg-th;
+
+  document.getElementById('kpi-strip').innerHTML=[
+    ['Lahan efektif',(eff/10000).toFixed(1)+' Ha',Math.round(eff).toLocaleString('id')+' m²','gold'],
+    ['Total unit',tu,'semua tipe','sage'],
+    ['Gross Dev Value',fmtRp(tg),'estimasi total','rust'],
+    ['Estimasi profit',fmtRp(pr),'margin '+Math.round(mg*100)+'%','slate'],
+  ].map(([l,v,s,c])=>`<div class="kpi ${c}"><div class="kpi-lbl">${l}</div><div class="kpi-val">${v}</div><div class="kpi-sub">${s}</div></div>`).join('');
+
+  document.getElementById('tipe-grid').innerHTML=rows.map(r=>`
+    <div class="tipe-card">
+      <div class="tipe-accent" style="background:${r.accent};"></div>
+      <div class="tipe-body">
+        <div class="tipe-badge-row">
+          <div class="tipe-name">${r.nama}</div>
+          <span class="tipe-ukuran" style="background:${r.aL};color:${r.aT};">${r.ukuran}</span>
+        </div>
+        <div class="tipe-row"><span class="tipe-lbl">LT</span><span class="tipe-val">${r.lt} m²</span></div>
+        <div class="tipe-row"><span class="tipe-lbl">LB</span><span class="tipe-val">${r.lb} m²</span></div>
+        <div class="tipe-row"><span class="tipe-lbl">Jumlah unit</span><span class="tipe-val">${r.u} unit</span></div>
+        <div class="tipe-row"><span class="tipe-lbl">HPP / unit</span><span class="tipe-val">${fmtRp(r.hpp)}</span></div>
+        <div class="tipe-highlight tipe-row">
+          <span class="tipe-lbl">Harga jual</span><span class="tipe-val">${fmtRp(r.j)}</span>
+        </div>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('bar-chart').innerHTML=rows.map(r=>`
+    <div class="bar-row">
+      <div class="bar-meta">
+        <span class="bar-meta-l">${r.nama} (${r.ukuran})</span>
+        <span class="bar-meta-r">${Math.round(r.lT).toLocaleString('id')} m² · ${r.u} unit · ${r.pct}% lahan</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:${r.pct*1.4}%;background:${r.accent};"></div></div>
+    </div>`).join('');
+
+  renderTable(rows);
+  persist();
+  scheduleAutoSave();
+}
+
+function renderTable(rows) {
+  const avg=compAvg();
+  const ours=rows.map(r=>({isOur:true,nama:OUR,tipe:r.ukuran,lt:r.lt,lb:r.lb,harga:r.j/1e6,pm:r.pm,id:null}));
+  const comps=competitors.map(c=>{const lt=parseTipe(c.tipe)||0;return{...c,lt,pm:lt>0?c.harga*1e6/lt:0,isOur:false};});
+  const all=[...comps,...ours].sort((a,b)=>a.lt-b.lt);
+  const tb=document.getElementById('comp-tbody');
+  tb.innerHTML='';
+  all.forEach(r=>{
+    const diff=avg>0?(r.pm/avg-1)*100:0;
+    const pill=r.isOur?'<span class="pill pill-gold">★ Kita</span>'
+      :diff<-5?'<span class="pill pill-green">↓ murah</span>'
+      :diff>5 ?'<span class="pill pill-amber">↑ premium</span>'
+      :'<span class="pill pill-gray">≈ pasar</span>';
+    const tr=document.createElement('tr');
+    if(r.isOur) tr.className='our-row';
+    if(r.isOur){
+      tr.innerHTML=`
+        <td><div class="cell" style="font-weight:700;color:var(--gold-dim);">${r.nama}</div></td>
+        <td><div class="cell">${r.tipe}</div></td>
+        <td><div class="cell">${r.lt}</div></td>
+        <td><div class="cell">${r.lb}</div></td>
+        <td><div class="cell" style="font-weight:600;">${fmtRp(r.harga*1e6)}</div></td>
+        <td><div class="cell">${(r.pm/1e6).toFixed(2)} jt</div></td>
+        <td><div class="cell">${pill}</div></td>
+        <td><div class="cell"></div></td>`;
+    } else {
+      tr.dataset.id=r.id;
+      tr.innerHTML=`
+        <td><div class="cell cell-edit"><input class="td-input" data-f="nama" value="${r.nama}"></div></td>
+        <td><div class="cell cell-edit"><input class="td-input" data-f="tipe" value="${r.tipe}" placeholder="p×l" style="min-width:60px;"></div></td>
+        <td><div class="cell cell-edit"><div class="td-auto" id="lt-${r.id}">${r.lt>0?r.lt:'—'}<span class="auto-hint">⚡ dari tipe</span></div></div></td>
+        <td><div class="cell cell-edit"><input class="td-input" type="number" data-f="lb" value="${r.lb}" style="min-width:50px;"></div></td>
+        <td><div class="cell cell-edit"><input class="td-input" type="number" data-f="harga" value="${r.harga}" style="min-width:62px;"></div></td>
+        <td><div class="cell cell-edit"><div class="td-auto" id="pm-${r.id}">${r.lt>0?(r.pm/1e6).toFixed(2)+' jt':'—'}<span class="auto-hint">⚡ otomatis</span></div></div></td>
+        <td><div class="cell">${pill}</div></td>
+        <td><div class="cell"><button class="btn-del" onclick="delComp(${r.id})">✕</button></div></td>`;
+      tr.querySelectorAll('.td-input').forEach(inp=>{
+        inp.addEventListener('input',()=>{
+          const c=competitors.find(x=>x.id===r.id); if(!c) return;
+          const f=inp.dataset.f;
+          c[f]=['lb','harga'].includes(f)?parseFloat(inp.value)||0:inp.value;
+          if(f==='tipe'){
+            const nl=parseTipe(inp.value);
+            document.getElementById('lt-'+r.id).innerHTML=(nl?nl:'—')+'<span class="auto-hint">⚡ dari tipe</span>';
+            document.getElementById('pm-'+r.id).innerHTML=(nl&&nl>0?(c.harga*1e6/nl/1e6).toFixed(2)+' jt':'—')+'<span class="auto-hint">⚡ otomatis</span>';
+          }
+          if(f==='harga'){
+            const lt=parseTipe(c.tipe);
+            if(lt&&lt>0) document.getElementById('pm-'+r.id).innerHTML=(c.harga*1e6/lt/1e6).toFixed(2)+' jt<span class="auto-hint">⚡ otomatis</span>';
+          }
+        });
+        inp.addEventListener('blur',()=>compute());
+      });
+    }
+    tb.appendChild(tr);
+  });
+}
+
+function delComp(id){ competitors=competitors.filter(c=>c.id!==id); compute(); }
+
+// ═══ Modals ═══
+function openModal(){ ['f-nama','f-tipe','f-lb','f-harga'].forEach(i=>document.getElementById(i).value=''); document.getElementById('overlay-add').classList.add('show'); setTimeout(()=>document.getElementById('f-nama').focus(),150); }
+function closeModal(){ document.getElementById('overlay-add').classList.remove('show'); }
+function saveModal(){
+  const nm=document.getElementById('f-nama').value.trim();
+  const tp=document.getElementById('f-tipe').value.trim();
+  const hg=parseFloat(document.getElementById('f-harga').value)||0;
+  if(!nm||!tp||!hg){alert('Nama, tipe, dan harga wajib diisi.');return;}
+  const lt=parseTipe(tp)||0;
+  let lb=parseFloat(document.getElementById('f-lb').value)||0;
+  if(!lb&&lt>0) lb=Math.round(lt*0.6);
+  competitors.push({id:nextId++,nama:nm,tipe:tp,lb,harga:hg});
+  closeModal(); compute();
+}
+function openSetupModal(){ document.getElementById('overlay-setup').classList.add('show'); }
+function closeSetupModal(){ document.getElementById('overlay-setup').classList.remove('show'); }
+function copyGsCode(){
+  navigator.clipboard.writeText(document.getElementById('gs-code').textContent).then(()=>{
+    const b=document.getElementById('copy-btn'); b.textContent='✓ Tersalin!';
+    setTimeout(()=>b.textContent='Salin kode',2000);
+  });
+}
+
+// ═══ Sliders ═══
+[['sl-lahan','out-lahan',' Ha'],['sl-efisiensi','out-efisiensi','%'],
+ ['sl-tanah','out-tanah',' jt'],['sl-margin','out-margin','%']].forEach(([id,oid,u])=>{
+  document.getElementById(id).addEventListener('input',function(){
+    document.getElementById(oid).textContent=(id==='sl-tanah'?parseFloat(this.value).toFixed(1):Math.round(this.value))+u;
+    compute();
+  });
+});
+
+document.getElementById('sheet-url').addEventListener('change',()=>{
+  try{localStorage.setItem(LS_URL,document.getElementById('sheet-url').value.trim());}catch(e){}
+});
+
+// ═══ INIT ═══
+restore();
+compute();
+</script>
+</body>
+</html>
