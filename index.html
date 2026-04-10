@@ -664,6 +664,17 @@ document.getElementById('sheet-url').addEventListener('change',()=>{
 // ═══ INIT ═══
 restore();
 compute();
+
+// Auto-load dari sheet jika URL sudah pernah disimpan
+(async () => {
+  await new Promise(r => setTimeout(r, 300));
+  const savedUrl = localStorage.getItem(LS_URL);
+  if (savedUrl && savedUrl.includes('script.google.com')) {
+    document.getElementById('sheet-url').value = savedUrl;
+    setStatus('Menghubungkan...', 's-busy');
+    await loadFromSheet();
+  }
+})();
 </script>
 </body>
 </html>
