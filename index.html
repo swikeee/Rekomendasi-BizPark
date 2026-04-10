@@ -357,7 +357,7 @@ let competitors = [
   {id:5,nama:'Kutawaringin IP 2',tipe:'24×40', lb:432,harga:8000},
   {id:6,nama:'Bizpark',          tipe:'6×15',  lb:130,harga:3000},
 ];
-let nextId = 10, autoSave = false, autoTimer = null;
+let nextId = 10, autoSave = true, autoTimer = null;
 
 // ═══════════════════════════════
 //  LOCALSTORAGE
@@ -664,6 +664,11 @@ document.getElementById('sheet-url').addEventListener('change',()=>{
 // ═══ INIT ═══
 restore();
 compute();
+
+// Auto-save ON by default
+const btnAuto = document.getElementById('btn-auto');
+btnAuto.textContent = '✓ Auto ON';
+btnAuto.className = 'btn-s auto-on';
 
 // Auto-load dari sheet jika URL sudah pernah disimpan
 (async () => {
